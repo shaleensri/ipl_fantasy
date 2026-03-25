@@ -250,13 +250,18 @@ _Last updated: in-season **trades** and **free agency / waivers**; no app store;
 ## Local development (skeleton)
 
 1. `cd` into this repo and install: `npm install`
-2. Copy `.env.example` → `.env` and set `DATABASE_URL` and **`AUTH_SECRET`** (long random string). Optionally set **`ADMIN_EMAILS`** (comma-separated) so those addresses register as **ADMIN**.
-3. `npm run db:migrate` (or `db:push` for prototyping) then `npm run dev`
-4. Open [http://localhost:3000](http://localhost:3000); register or sign in at `/register` and `/login`. Health: [http://localhost:3000/api/health](http://localhost:3000/api/health)
+2. Copy `.env.example` → `.env` and set **`AUTH_SECRET`** (long random string). Optionally set **`ADMIN_EMAILS`** (comma-separated) so those addresses register as **ADMIN**.
+3. **Postgres** — easiest local option: start Docker Desktop, then from the repo root run `docker compose up -d`. Use the `DATABASE_URL` from `.env.example` (user `ipl`, password `iplfantasy_dev`, host port **5433**). Then run `npx prisma db push` or `npm run db:migrate`.
+4. `npm run dev`
+5. Open [http://localhost:3000](http://localhost:3000); register or sign in at `/register` and `/login`. Health: [http://localhost:3000/api/health](http://localhost:3000/api/health)
 
 Stack: **Next.js** (App Router) + **TypeScript** + **Tailwind CSS v4** + **Prisma** + **Postgres**. PWA: `src/app/manifest.ts`. DB schema: `prisma/schema.prisma`.
 
 If `next dev` errors on `networkInterfaces` (some sandboxes / restricted hosts), bind explicitly: `npm run dev -- -H 127.0.0.1`.
+
+### Testing
+
+Vitest (unit, integration, functional, optional HTTP black-box + coverage) and Playwright (smoke, acceptance, E2E, performance budgets). See **[tests/README.md](tests/README.md)** for commands and how to extend suites.
 
 ### Git branch
 
