@@ -17,6 +17,48 @@ Mobile-first fantasy cricket for a private group of friends: join a league with 
 | Season play | **Head-to-head**: each gameweek your team faces one other team; standings from wins/losses (+ optional tiebreakers). |
 | Gameweeks | Define windows tied to IPL schedule (e.g. a set of matches or Fri–Sun blocks); **~6–8 games** per week when possible. |
 | Lineups | Users set starters (and bench) before **lock** (first ball of gameweek or first match in slate — product decision). |
+| Trades | Teams can **trade players** during the season (see rules below). |
+| Free agency | Teams can **add** unsigned players and **drop** rostered players via **waivers** and/or **free agency** (league setting). |
+
+---
+
+## In-season trades
+
+- **Who:** any two teams in the same league (v1: 1:1 trades; multi-team trades are a later stretch).
+- **What:** exchange **N players for M players** (and optionally **future** draft picks if you add “draft pick” assets later — skip for v1 unless you want it).
+- **Flow (suggested):**
+  1. Team A proposes: *give* `[players]` *receive* `[players]` from Team B.
+  2. Team B **accepts** or **declines**; optional **commissioner veto** window (league setting).
+  3. Server validates **both** sides still own those players, **no duplicate** players post-trade, and **rosters stay legal** (roster size + min/max per position).
+  4. Execute atomically: remove/add roster rows, write an auditable **transaction** record.
+- **Timing:** block trades after **lineup lock** for the current gameweek if either player is **starting** that week (simple rule); or allow but points stay with original team until next week — **pick one** and document it in league settings.
+- **Deadline:** optional “trade deadline” gameweek (e.g. before playoffs).
+
+---
+
+## Free agents & waivers
+
+**Free agent pool** = all **eligible** IPL players who are **not** on any league roster (never drafted or **dropped**).
+
+### Add / drop
+
+- **Drop:** release a player to the pool (subject to roster minimums — cannot drop if it leaves an **illegal** roster).
+- **Add:** claim a player from the pool into an open roster slot (or swap: drop + add in one transaction).
+
+### Fairness models (choose per league)
+
+| Mode | Behavior |
+|------|-----------|
+| **First-come, free agency** | After a clear **processing time** (e.g. immediately or at a daily run), first successful claim wins. Simple; can favor the fastest phone. |
+| **Waiver wire (rolling)** | Dropped players sit on **waivers** for **X hours/days**. Claims resolve in **waiver order** (e.g. inverse standings or rolling “last to get a claim moves to end”). |
+| **FAAB (budget)** | Each team has a **budget** of fake dollars per season; blind bids on waivers; **highest bid** wins (ties broken by **waiver order** or **standings** — deterministic). |
+
+Recommend supporting **at least one** of: rolling waivers or FAAB for friend leagues so adds feel fair.
+
+### Processing
+
+- Run claims on a **schedule** (e.g. **Tuesday / day before gameweek** at a fixed UTC time) so everyone knows when adds clear.
+- **Multi-claim same player:** resolve with your league’s rule (FAAB: highest bid; waivers: priority order); **no randomness**.
 
 ---
 
@@ -84,6 +126,11 @@ You can add **playoffs** (top N) later.
 - **Draft** — league_id, status, `current_pick_index`, `pick_deadline_at` (server time).
 - **Pick** — draft_id, round, overall, team_id, player_id, `picked_at`, `was_autopick` boolean.
 - **Player** — name, team (franchise), role(s), external id, **consensus_rank**, active flag.
+- **RosterSpot** (or **RosterEntry**) — league_id, team_id, player_id, acquired_via (`draft` \| `trade` \| `waiver` \| `fa`), timestamps.
+- **TradeProposal** — proposer_team_id, counterparty_team_id, status (`pending` \| `accepted` \| `declined` \| `vetoed` \| `expired`), payload (player ids each side), `expires_at`.
+- **RosterTransaction** — immutable log: type (`trade` \| `add` \| `drop` \| `add_drop`), team_id(s), player_id(s), metadata (trade_id, waiver_run_id).
+- **WaiverClaim** (if using waivers/FAAB) — gameweek or run_id, team_id, add_player_id, drop_player_id nullable, bid_amount nullable, priority snapshot, status.
+- **WaiverRun** — league_id, processed_at, deterministic ordering inputs (standings snapshot, FAAB balances after run).
 - **Gameweek** — league season slice: start/end, list of **match_ids** (or date range).
 - **Matchup** — gameweek_id, team_a_id, team_b_id, scores computed after lock.
 - **Lineup** — gameweek_id, team_id, starter flags per roster slot.
@@ -112,7 +159,7 @@ You can add **playoffs** (top N) later.
 - [ ] Draft board UI (mobile): current picker, queue, available players, **timer**.
 - [ ] **Make pick** + push update to all clients (realtime or poll).
 - [ ] **Autopick worker**: on `pick_deadline_at` pass, run **need-aware best-rank** algorithm; advance pick; set next deadline.
-- [ ] Draft complete → freeze rosters.
+- [ ] Draft complete → rosters active; **trades and adds/drops** follow league rules in later phases.
 
 ### Phase 4 — Season & H2H
 
@@ -121,6 +168,20 @@ You can add **playoffs** (top N) later.
 - [ ] Lineup screen + **lock** at gameweek start.
 - [ ] Scoring job: after matches, aggregate points for starters; update matchup totals.
 - [ ] Standings page (W-L, PF, tiebreakers).
+
+### Phase 4b — Trades
+
+- [ ] **RosterEntry** (or equivalent) as source of truth for who holds which players.
+- [ ] Trade proposal UI (mobile): select players to give / players to request; show validation errors (illegal roster, wrong team).
+- [ ] Accept/decline flow + optional **commissioner veto** + **audit log** (`RosterTransaction`).
+- [ ] League settings: trade review window, trade deadline gameweek, rule for trades involving **active starters** (block vs allow with next-week effective date).
+
+### Phase 4c — Free agency & waivers
+
+- [ ] **Player pool** view: available players, filters, add intent (drop player if roster full).
+- [ ] Implement chosen league mode: **FCFS**, **rolling waivers**, and/or **FAAB** (settings + scheduled **WaiverRun** job).
+- [ ] Deterministic resolution: ordering, ties, multi-claim conflicts; persist results in **RosterTransaction**.
+- [ ] Notify users when claims succeed/fail (in-app minimum; email optional).
 
 ### Phase 5 — Polish
 
@@ -141,7 +202,8 @@ You can add **playoffs** (top N) later.
 ## Open items to decide early
 
 - Exact **roster positions** and **scoring** (points per stat).
-- Whether **trades** / **waivers** exist post-draft (v1 can be “rosters fixed”).
+- **Adds/drops:** FCFS vs **rolling waivers** vs **FAAB**; waiver order definition; processing time(s) each week.
+- **Trades:** commissioner veto on/off; whether trades **clear immediately** or after a **review window**; behavior during active gameweek (block vs next-week effective).
 - **Multi-league** per user vs one league per account focus for v1.
 - **IPL data rights** — use only data you’re allowed to store and redistribute; many apps use licensed feeds or manual CSVs from public schedules.
 
@@ -152,7 +214,8 @@ You can add **playoffs** (top N) later.
 - Friends can **create league**, **join with code**, and finish a **snake draft** on mobile.
 - **Missed picks autopick** sensibly via **rank + roster needs**, not randomness.
 - One full **H2H gameweek** works end-to-end: lineup lock → scores → winner.
+- Teams can complete at least one **trade** and one **add/drop** (or waiver claim) that updates rosters **correctly** and is visible in **transaction history**.
 
 ---
 
-*Last updated: aligned with “no app store,” mobile-first web/PWA, and deterministic autopick.*
+*Last updated: in-season **trades** and **free agency / waivers**; no app store; mobile-first web/PWA; deterministic autopick.*
