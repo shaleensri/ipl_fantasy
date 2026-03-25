@@ -16,15 +16,17 @@ services:
       POSTGRES_PASSWORD: iplfantasy_dev
       POSTGRES_DB: ipl_fantasy
     # Host 5433 avoids clashing with a Postgres install already using 5432.
+    # Bind to 127.0.0.1 so Prisma/clients using 127.0.0.1 match (avoids localhost → ::1).
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - ipl_fantasy_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ipl -d ipl_fantasy"]
       interval: 3s
       timeout: 5s
-      retries: 10
+      retries: 15
+      start_period: 15s
 
 volumes:
   ipl_fantasy_pgdata:

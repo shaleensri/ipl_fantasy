@@ -79,7 +79,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-medium text-[#04120f] disabled:opacity-50"
+          className="rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-zinc-950 disabled:opacity-50"
         >
           {pending ? "Signing in…" : "Sign in"}
         </button>
@@ -91,7 +91,7 @@ export function LoginForm() {
           href="/register"
           className="text-[var(--accent)] no-underline hover:underline"
         >
-          Register
+          Create account
         </Link>
       </p>
     </main>

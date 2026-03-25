@@ -4,6 +4,8 @@ export type ResolvedDraftRules = {
   rosterSize: number;
   pickTimerSeconds: number;
   autopickEnabled: boolean;
+  /** Sum of `Player.listPrice` for a full roster should stay under this (mock default). */
+  draftSalaryCap: number;
 };
 
 export function resolveDraftRules(settings: unknown): ResolvedDraftRules {
@@ -15,6 +17,8 @@ export function resolveDraftRules(settings: unknown): ResolvedDraftRules {
         ? s.pickTimerSeconds
         : 90,
     autopickEnabled: s.autopickEnabled !== false,
+    draftSalaryCap:
+      typeof s.draftSalaryCap === "number" && s.draftSalaryCap >= 1 ? s.draftSalaryCap : 10_000,
   };
 }
 

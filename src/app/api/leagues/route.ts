@@ -6,7 +6,6 @@ import { createLeagueForCommissioner, LeagueServiceError } from "@/server/league
 const bodySchema = z.object({
   name: z.string().trim().min(1).max(80),
   myTeamName: z.string().trim().min(1).max(80),
-  seasonYear: z.coerce.number().int().min(2008).max(2100).optional(),
 });
 
 export async function POST(req: Request) {
@@ -30,7 +29,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const seasonYear = parsed.data.seasonYear ?? new Date().getUTCFullYear();
+  const seasonYear = new Date().getUTCFullYear();
 
   try {
     const { league, inviteCode } = await createLeagueForCommissioner({

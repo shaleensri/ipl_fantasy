@@ -96,3 +96,12 @@ export async function joinLeagueWithCode(input: {
 
   return { league, team };
 }
+
+/** Teams the user belongs to, with league metadata, newest first. */
+export async function getMyLeagueMemberships(userId: string) {
+  return prisma.team.findMany({
+    where: { userId },
+    include: { league: true },
+    orderBy: { createdAt: "desc" },
+  });
+}

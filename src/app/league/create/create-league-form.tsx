@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 
+const primaryBtn =
+  "rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-zinc-950 disabled:opacity-50";
+
 export function CreateLeagueForm() {
   const [name, setName] = useState("");
   const [myTeamName, setMyTeamName] = useState("");
-  const [seasonYear, setSeasonYear] = useState(String(new Date().getUTCFullYear()));
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{
     inviteCode: string;
@@ -21,7 +23,6 @@ export function CreateLeagueForm() {
     setSuccess(null);
     setPending(true);
     try {
-      const year = Number.parseInt(seasonYear, 10);
       const res = await fetch("/api/leagues", {
         method: "POST",
         credentials: "include",
@@ -29,7 +30,6 @@ export function CreateLeagueForm() {
         body: JSON.stringify({
           name,
           myTeamName,
-          ...(Number.isFinite(year) ? { seasonYear: year } : {}),
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -78,20 +78,34 @@ export function CreateLeagueForm() {
         <p className="mt-1 break-all font-mono text-xs text-[var(--foreground)]">
           {shareUrl}
         </p>
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-4 flex flex-col gap-2">
+          <Link
+            href={`/draft/${success.leagueId}`}
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--accent)] px-3 py-2 text-center text-sm font-semibold text-zinc-950 no-underline hover:opacity-90"
+          >
+            Open draft room
+          </Link>
           <Link
             href={`/league/join?code=${encodeURIComponent(success.inviteCode)}`}
-            className="rounded-lg bg-[var(--accent)] px-3 py-2 text-center text-sm font-medium text-[#04120f] no-underline"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#2a3140] px-3 py-2 text-center text-sm text-[var(--foreground)] no-underline hover:bg-[#1a1f2e]"
           >
             Open join page
           </Link>
-          <button
-            type="button"
-            className="rounded-lg border border-[#2a3140] px-3 py-2 text-center text-sm text-[var(--foreground)]"
-            onClick={() => setSuccess(null)}
-          >
-            Create another
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link
+              href="/"
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-[#2a3140] px-3 py-2 text-center text-sm text-[var(--foreground)] no-underline hover:bg-[#1a1f2e]"
+            >
+              Back to home
+            </Link>
+            <button
+              type="button"
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-[#2a3140] px-3 py-2 text-center text-sm text-[var(--foreground)] hover:bg-[#1a1f2e]"
+              onClick={() => setSuccess(null)}
+            >
+              Create another league
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -119,27 +133,13 @@ export function CreateLeagueForm() {
           className="rounded-lg border border-[#2a3140] bg-[#151a24] px-3 py-2 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-[var(--muted)]">Season year (optional)</span>
-        <input
-          name="seasonYear"
-          inputMode="numeric"
-          value={seasonYear}
-          onChange={(e) => setSeasonYear(e.target.value)}
-          className="rounded-lg border border-[#2a3140] bg-[#151a24] px-3 py-2 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
-        />
-      </label>
       {error ? (
         <p className="text-sm text-red-400" role="alert">
           {error}
         </p>
       ) : null}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-medium text-[#04120f] disabled:opacity-50"
-      >
-        {pending ? "Creating…" : "Create league"}
+      <button type="submit" disabled={pending} className={primaryBtn}>
+        {pending ? "Creating league…" : "Create league"}
       </button>
     </form>
   );

@@ -104,9 +104,9 @@ export function RegisterForm() {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-medium text-[#04120f] disabled:opacity-50"
+          className="rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-zinc-950 disabled:opacity-50"
         >
-          {pending ? "Creating account…" : "Register"}
+          {pending ? "Creating account…" : "Create account"}
         </button>
       </form>
 

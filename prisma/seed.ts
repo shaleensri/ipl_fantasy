@@ -2,9 +2,16 @@ import { PrismaClient, PlayerRole } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-/** Default mock pool size — enough for small leagues at default roster (15). */
-const MOCK_PLAYER_COUNT = 80;
-const SEASON_YEAR = new Date().getUTCFullYear();
+/**
+ * Picks required = teams × rosterSize (default roster 15). Six teams need 90 players;
+ * the old pool of 80 was too small. We seed two UTC years so leagues created with a
+ * different `seasonYear` still find a pool after `db:seed`.
+ */
+const PLAYERS_PER_SEASON = 200;
+const SEASON_YEARS = [
+  new Date().getUTCFullYear(),
+  new Date().getUTCFullYear() - 1,
+] as const;
 
 const FRANCHISES = [
   "CSK",
@@ -30,36 +37,53 @@ function mockName(index: number): string {
   return `Mock Player ${String(index).padStart(3, "0")}`;
 }
 
+/** Higher consensus rank (lower index) → higher mock salary (auction-style). */
+function mockListPrice(rankIndex: number): number {
+  return Math.max(5, 180 - rankIndex);
+}
+
 async function main() {
-  for (let i = 1; i <= MOCK_PLAYER_COUNT; i++) {
-    const externalId = `mock-${SEASON_YEAR}-${String(i).padStart(3, "0")}`;
-    const roles = [ROLE_CYCLE[(i - 1) % ROLE_CYCLE.length]];
-    const franchise = FRANCHISES[(i - 1) % FRANCHISES.length];
-    await prisma.player.upsert({
-      where: { externalId },
-      create: {
-        externalId,
-        name: mockName(i),
-        franchise,
-        roles,
-        consensusRank: i,
-        active: true,
-        seasonYear: SEASON_YEAR,
-      },
-      update: {
-        name: mockName(i),
-        franchise,
-        roles,
-        consensusRank: i,
-        active: true,
-        seasonYear: SEASON_YEAR,
-      },
-    });
+  let total = 0;
+  for (const seasonYear of SEASON_YEARS) {
+    for (let i = 1; i <= PLAYERS_PER_SEASON; i++) {
+      const externalId = `mock-${seasonYear}-${String(i).padStart(3, "0")}`;
+      const roles = [ROLE_CYCLE[(i - 1) % ROLE_CYCLE.length]];
+      const franchise = FRANCHISES[(i - 1) % FRANCHISES.length];
+      const listPrice = mockListPrice(i);
+      await prisma.player.upsert({
+        where: { externalId },
+        create: {
+          externalId,
+          name: mockName(i),
+          franchise,
+          roles,
+          consensusRank: i,
+          listPrice,
+          active: true,
+          seasonYear,
+        },
+        update: {
+          name: mockName(i),
+          franchise,
+          roles,
+          consensusRank: i,
+          listPrice,
+          active: true,
+          seasonYear,
+        },
+      });
+      total += 1;
+    }
+    console.log(
+      `Seeded ${PLAYERS_PER_SEASON} mock players for season ${seasonYear} (e.g. ${externalIdSample(seasonYear)}).`,
+    );
   }
 
-  console.log(
-    `Seeded ${MOCK_PLAYER_COUNT} mock players for season ${SEASON_YEAR} (externalId mock-${SEASON_YEAR}-001 …).`,
-  );
+  console.log(`Total mock player rows upserted: ${total}.`);
+}
+
+function externalIdSample(year: number): string {
+  return `mock-${year}-001 … mock-${year}-${String(PLAYERS_PER_SEASON).padStart(3, "0")}`;
 }
 
 main()
