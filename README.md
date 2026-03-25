@@ -116,6 +116,16 @@ You can add **playoffs** (top N) later.
 | Auth           | Email magic link or OAuth; keep it simple for friends-only leagues.                                                            |
 | Hosting        | Vercel/Netlify (frontend), managed Postgres (Neon, Supabase, Railway).                                                         |
 
+### Locked-in choices (skeleton)
+
+| Layer     | Decision                                                                                                                                                                          |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend  | **Next.js 15** App Router, **React 19**, **TypeScript**                                                                                                                           |
+| Styling   | **Tailwind CSS v4** (`@import "tailwindcss"` + `@tailwindcss/postcss`)                                                                                                            |
+| ORM / DB  | **Prisma 6** + **PostgreSQL** (`DATABASE_URL`)                                                                                                                                    |
+| PWA       | Dynamic manifest from `src/app/manifest.ts` (not a static `public/manifest.json` yet)                                                                                             |
+| Structure | `src/lib/prisma.ts` (singleton client), `src/lib/league-settings.ts` (JSON settings shape), `src/lib/autopick.ts` (deterministic tiebreak helper), `src/jobs/` for future workers |
+
 ---
 
 ## Data model (first cut)
@@ -135,17 +145,29 @@ You can add **playoffs** (top N) later.
 - **Matchup** — gameweek_id, team_a_id, team_b_id, scores computed after lock.
 - **Lineup** — gameweek_id, team_id, starter flags per roster slot.
 
+### Architecture notes (implemented in Prisma vs this outline)
+
+The live schema lives in `prisma/schema.prisma`. Deliberate differences from the prose outline above:
+
+- **Gameweeks & fixtures** — `Gameweek` is **global per IPL season** (`seasonYear` + `index`), not per league. IPL **matches** are `Fixture` rows with required `gameweekId`, franchises, and `startTimeUtc`, instead of storing a raw list of match ids only on the gameweek document. League-specific play still uses `Matchup` (H2H) keyed by `leagueId` + `gameweekId`.
+- **`RosterTransaction`** — includes a required `leagueId` foreign key for efficient querying; detailed ids stay in `metadata` JSON.
+- **`League.waiverMode`** — first-class enum (`FCFS` \| `ROLLING_WAIVERS` \| `FAAB`) in addition to open-ended `settings` JSON.
+- **`Pick.autopickReason`** — optional string for explainable autopick copy in the draft room.
+- **`PlayerFixtureStat`** — links `Player` + `Fixture` with `points` and optional `rawStats` JSON for scoring jobs.
+- **`Lineup.slots`** — single JSON column for starter/bench mapping (shape enforced in app layer from league roster rules) rather than a normalized slot table in v1.
+- **Trade payload** — `TradeProposal.payload` JSON; intended shape `{ givePlayerIds: string[], receivePlayerIds: string[] }` (documented in schema).
+
 ---
 
 ## Implementation checklist
 
 ### Phase 1 — Foundation
 
-- [ ] Repo setup: lint, format, TypeScript, env example.
-- [ ] Postgres schema + migrations for entities above.
+- [x] Repo setup: lint, format, TypeScript, env example.
+- [x] Postgres **schema** (Prisma) for entities above — run `npm run db:migrate` or `db:push` to apply; committed SQL migrations can be added on first real migrate.
 - [ ] Auth (sign up / sign in / session).
-- [ ] Create league + **generate invite code** + commissioner role.
-- [ ] Join league by code + team name.
+- [ ] Create league + **generate invite code** + commissioner role (UI stub at `/league/create` only).
+- [ ] Join league by code + team name (UI stub at `/league/join` only).
 
 ### Phase 2 — Player pool & settings
 
@@ -171,7 +193,7 @@ You can add **playoffs** (top N) later.
 
 ### Phase 4b — Trades
 
-- [ ] **RosterEntry** (or equivalent) as source of truth for who holds which players.
+- [ ] **RosterEntry** (or equivalent) as source of truth for who holds which players in **live flows** (Prisma model exists; post-draft roster population and trades not wired yet).
 - [ ] Trade proposal UI (mobile): select players to give / players to request; show validation errors (illegal roster, wrong team).
 - [ ] Accept/decline flow + optional **commissioner veto** + **audit log** (`RosterTransaction`).
 - [ ] League settings: trade review window, trade deadline gameweek, rule for trades involving **active starters** (block vs allow with next-week effective date).
@@ -185,7 +207,8 @@ You can add **playoffs** (top N) later.
 
 ### Phase 5 — Polish
 
-- [ ] PWA manifest + icons.
+- [x] PWA **manifest** via Next.js App Router (`src/app/manifest.ts` → `/manifest.webmanifest`).
+- [ ] PWA **icons** (maskable) + optional **service worker** / offline shell.
 - [ ] Email or in-app notifications for “you’re on the clock” (optional).
 - [ ] Basic admin: reset pick only by commissioner (optional, dangerous — gate carefully).
 
@@ -230,3 +253,13 @@ _Last updated: in-season **trades** and **free agency / waivers**; no app store;
 4. Open [http://localhost:3000](http://localhost:3000); health check: [http://localhost:3000/api/health](http://localhost:3000/api/health)
 
 Stack: **Next.js** (App Router) + **TypeScript** + **Tailwind CSS v4** + **Prisma** + **Postgres**. PWA: `src/app/manifest.ts`. DB schema: `prisma/schema.prisma`.
+
+If `next dev` errors on `networkInterfaces` (some sandboxes / restricted hosts), bind explicitly: `npm run dev -- -H 127.0.0.1`.
+
+### Git branch
+
+Active skeleton work: **`pranav_website_skeleton`**. Push updates with:
+
+```bash
+git push -u origin pranav_website_skeleton
+```
