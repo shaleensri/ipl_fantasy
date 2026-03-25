@@ -21,7 +21,12 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json-summary", "html"],
       reportsDirectory: "./coverage",
-      include: ["src/lib/**/*.ts", "src/auth.ts", "src/app/api/**/*.ts"],
+      include: [
+        "src/lib/**/*.ts",
+        "src/server/**/*.ts",
+        "src/auth.ts",
+        "src/app/api/**/*.ts",
+      ],
       exclude: ["src/**/*.d.ts", "src/types/**", "src/middleware.ts", "**/*.config.*"],
       // Raise thresholds as more app code gains tests.
       thresholds: {

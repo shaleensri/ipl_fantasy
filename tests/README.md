@@ -5,7 +5,7 @@ This repo uses **two runners**:
 | Layer              | Tool       | Location                  | Purpose                                                          |
 | ------------------ | ---------- | ------------------------- | ---------------------------------------------------------------- |
 | **Unit**           | Vitest     | `tests/unit/`             | Pure logic (`src/lib/*`, small pure helpers).                    |
-| **Integration**    | Vitest     | `tests/integration/`      | Route handlers + real I/O (e.g. Prisma) in-process.              |
+| **Integration**    | Vitest     | `tests/integration/`      | Route handlers + real I/O (e.g. Prisma): register, leagues.      |
 | **Functional**     | Vitest     | `tests/functional/`       | Multi-step API outcomes (status codes, DB side effects).         |
 | **Black-box HTTP** | Vitest     | `tests/blackbox/`         | `fetch` only against `TEST_BASE_URL` (optional; no app imports). |
 | **Smoke**          | Playwright | `tests/e2e/smoke.spec.ts` | Fast “is it alive?” checks with a real server.                   |

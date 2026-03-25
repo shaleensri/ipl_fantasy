@@ -6,14 +6,31 @@ export function isAdminUser(session: Session | null): boolean {
   return session?.user?.role === "ADMIN";
 }
 
+/** True if the signed-in user is the league commissioner (created the league). */
+export function isLeagueCommissioner(
+  session: Session | null,
+  league: Pick<League, "commissionerId">,
+): boolean {
+  return !!session?.user?.id && league.commissionerId === session.user.id;
+}
+
 /**
- * Commissioner-style control for a league: must be league commissioner AND have ADMIN role.
- * Use this when gating points/lineup overrides and league settings edits.
+ * Commissioner-only league actions (settings, draft control, etc.).
+ * Any commissioner qualifies; use `isAdminUser` additionally if an action should be ADMIN-only.
  */
 export function canManageLeagueAsCommissioner(
   session: Session | null,
   league: Pick<League, "commissionerId">,
 ): boolean {
-  if (!session?.user?.id) return false;
-  return session.user.role === "ADMIN" && league.commissionerId === session.user.id;
+  return isLeagueCommissioner(session, league);
+}
+
+/**
+ * Elevated actions (e.g. commissioner points overrides) — commissioner plus ADMIN role.
+ */
+export function canRunSensitiveCommissionerActions(
+  session: Session | null,
+  league: Pick<League, "commissionerId">,
+): boolean {
+  return isAdminUser(session) && isLeagueCommissioner(session, league);
 }

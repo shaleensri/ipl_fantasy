@@ -157,7 +157,7 @@ The live schema lives in `prisma/schema.prisma`. Deliberate differences from the
 - **`PlayerFixtureStat`** — links `Player` + `Fixture` with `points` and optional `rawStats` JSON for scoring jobs.
 - **`Lineup.slots`** — single JSON column for starter/bench mapping (shape enforced in app layer from league roster rules) rather than a normalized slot table in v1.
 - **Trade payload** — `TradeProposal.payload` JSON; intended shape `{ givePlayerIds: string[], receivePlayerIds: string[] }` (documented in schema).
-- **Auth** — `UserAppRole`: **PLAYER** (default) participates in leagues and owns **Team** rows; **ADMIN** is for commissioner-style actions (league rules, lineup/points overrides) when combined with `League.commissionerId === user.id`. Middleware uses **JWT only** (no Prisma on Edge). Helpers: `isAdminUser`, `canManageLeagueAsCommissioner` in `src/lib/permissions.ts`.
+- **Auth / roles** — `UserAppRole`: **PLAYER** (default) and **ADMIN** (`ADMIN_EMAILS` on register). **League commissioner** is whoever created the league (`League.commissionerId`). Helpers in `src/lib/permissions.ts`: `isLeagueCommissioner`, `canManageLeagueAsCommissioner` (league management for the commissioner), `canRunSensitiveCommissionerActions` (**ADMIN** + commissioner for riskier overrides later). Middleware uses **JWT only** (no Prisma on Edge).
 
 ---
 
@@ -168,8 +168,8 @@ The live schema lives in `prisma/schema.prisma`. Deliberate differences from the
 - [x] Repo setup: lint, format, TypeScript, env example.
 - [x] Postgres **schema** (Prisma) for entities above — run `npm run db:migrate` or `db:push` to apply; committed SQL migrations can be added on first real migrate.
 - [x] Auth (sign up / sign in / session) — **Auth.js / NextAuth v5** with **credentials** + **JWT**; `/login`, `/register`, `POST /api/auth/register`; roles `PLAYER` \| `ADMIN` on `User`; `ADMIN_EMAILS` env for bootstrap admins.
-- [ ] Create league + **generate invite code** + commissioner role (UI stub at `/league/create` only).
-- [ ] Join league by code + team name (UI stub at `/league/join` only).
+- [x] Create league + **generate invite code** + commissioner role — `POST /api/leagues`, `/league/create`; creates `League`, `Draft` (PENDING), commissioner `Team`, 8-char code (share link `/league/join?code=`).
+- [x] Join league by code + team name — `POST /api/leagues/join`, `/league/join` (optional `?code=` query).
 
 ### Phase 2 — Player pool & settings
 
