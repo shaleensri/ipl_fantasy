@@ -113,7 +113,7 @@ You can add **playoffs** (top N) later.
 | PWA            | `manifest.json`, service worker for shell/offline banner optional.                                                             |
 | API / DB       | **Postgres** + an ORM (Prisma/Drizzle) or **Supabase** (auth + DB + optional realtime).                                        |
 | Realtime draft | **Server-driven timer** + **WebSockets** or **Supabase Realtime** / polling fallback so everyone sees the same clock and pick. |
-| Auth           | Email magic link or OAuth; keep it simple for friends-only leagues.                                                            |
+| Auth           | Email magic link or OAuth; keep it simple for friends-only leagues. **Skeleton:** credentials + JWT (Auth.js v5).              |
 | Hosting        | Vercel/Netlify (frontend), managed Postgres (Neon, Supabase, Railway).                                                         |
 
 ### Locked-in choices (skeleton)
@@ -125,12 +125,13 @@ You can add **playoffs** (top N) later.
 | ORM / DB  | **Prisma 6** + **PostgreSQL** (`DATABASE_URL`)                                                                                                                                    |
 | PWA       | Dynamic manifest from `src/app/manifest.ts` (not a static `public/manifest.json` yet)                                                                                             |
 | Structure | `src/lib/prisma.ts` (singleton client), `src/lib/league-settings.ts` (JSON settings shape), `src/lib/autopick.ts` (deterministic tiebreak helper), `src/jobs/` for future workers |
+| Auth      | **next-auth v5** (`src/auth.ts`), credentials provider, JWT sessions, `src/middleware.ts` (Edge-safe `getToken`), `src/types/next-auth.d.ts` session typing                       |
 
 ---
 
 ## Data model (first cut)
 
-- **User** — identity, display name.
+- **User** — identity, display name, **app role** (`PLAYER` \| `ADMIN`), optional **password hash** (credentials auth).
 - **League** — name, settings (roster, scoring, pick time, autopick on/off), **invite_code**, commissioner_id, season/year.
 - **Team** — league_id, user_id, team_name, draft_position (slot 1…N).
 - **Draft** — league_id, status, `current_pick_index`, `pick_deadline_at` (server time).
@@ -156,6 +157,7 @@ The live schema lives in `prisma/schema.prisma`. Deliberate differences from the
 - **`PlayerFixtureStat`** — links `Player` + `Fixture` with `points` and optional `rawStats` JSON for scoring jobs.
 - **`Lineup.slots`** — single JSON column for starter/bench mapping (shape enforced in app layer from league roster rules) rather than a normalized slot table in v1.
 - **Trade payload** — `TradeProposal.payload` JSON; intended shape `{ givePlayerIds: string[], receivePlayerIds: string[] }` (documented in schema).
+- **Auth** — `UserAppRole`: **PLAYER** (default) participates in leagues and owns **Team** rows; **ADMIN** is for commissioner-style actions (league rules, lineup/points overrides) when combined with `League.commissionerId === user.id`. Middleware uses **JWT only** (no Prisma on Edge). Helpers: `isAdminUser`, `canManageLeagueAsCommissioner` in `src/lib/permissions.ts`.
 
 ---
 
@@ -165,7 +167,7 @@ The live schema lives in `prisma/schema.prisma`. Deliberate differences from the
 
 - [x] Repo setup: lint, format, TypeScript, env example.
 - [x] Postgres **schema** (Prisma) for entities above — run `npm run db:migrate` or `db:push` to apply; committed SQL migrations can be added on first real migrate.
-- [ ] Auth (sign up / sign in / session).
+- [x] Auth (sign up / sign in / session) — **Auth.js / NextAuth v5** with **credentials** + **JWT**; `/login`, `/register`, `POST /api/auth/register`; roles `PLAYER` \| `ADMIN` on `User`; `ADMIN_EMAILS` env for bootstrap admins.
 - [ ] Create league + **generate invite code** + commissioner role (UI stub at `/league/create` only).
 - [ ] Join league by code + team name (UI stub at `/league/join` only).
 
@@ -248,9 +250,9 @@ _Last updated: in-season **trades** and **free agency / waivers**; no app store;
 ## Local development (skeleton)
 
 1. `cd` into this repo and install: `npm install`
-2. Copy `.env.example` → `.env` and set `DATABASE_URL`
+2. Copy `.env.example` → `.env` and set `DATABASE_URL` and **`AUTH_SECRET`** (long random string). Optionally set **`ADMIN_EMAILS`** (comma-separated) so those addresses register as **ADMIN**.
 3. `npm run db:migrate` (or `db:push` for prototyping) then `npm run dev`
-4. Open [http://localhost:3000](http://localhost:3000); health check: [http://localhost:3000/api/health](http://localhost:3000/api/health)
+4. Open [http://localhost:3000](http://localhost:3000); register or sign in at `/register` and `/login`. Health: [http://localhost:3000/api/health](http://localhost:3000/api/health)
 
 Stack: **Next.js** (App Router) + **TypeScript** + **Tailwind CSS v4** + **Prisma** + **Postgres**. PWA: `src/app/manifest.ts`. DB schema: `prisma/schema.prisma`.
 

@@ -59,14 +59,25 @@ enum WaiverMode {
   FAAB
 }
 
+/// App-wide role: PLAYER participates in leagues; ADMIN can perform commissioner-style
+/// actions (league rules, lineup/points adjustments) where they are also commissioner.
+/// Admins can own teams and play like any other user.
+enum UserAppRole {
+  PLAYER
+  ADMIN
+}
+
 model User {
-  id               String   @id @default(cuid())
-  email            String   @unique
+  id               String      @id @default(cuid())
+  email            String      @unique
   emailVerified    DateTime?
   name             String?
   image            String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  role             UserAppRole @default(PLAYER)
+  /// Set when using email/password sign-in; null if you add OAuth-only users later.
+  passwordHash     String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
   leaguesCommissioned League[] @relation("Commissioner")
   teams            Team[]
 }
