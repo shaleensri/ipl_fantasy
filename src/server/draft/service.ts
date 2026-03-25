@@ -7,7 +7,11 @@ import {
   resolveDraftRules,
   totalPicks as computeTotalPicks,
 } from "@/server/draft/config";
-import { roundNumberForPick, teamIndexForSnakePick } from "@/server/draft/snake";
+import {
+  picksUntilSlotOnClock,
+  roundNumberForPick,
+  teamIndexForSnakePick,
+} from "@/server/draft/snake";
 
 export class DraftServiceError extends Error {
   constructor(
@@ -476,6 +480,39 @@ export async function getDraftState(leagueId: string, userId: string) {
         }
       : null;
 
+  const myRosterPlayers =
+    myRow != null
+      ? draft.picks
+          .filter((p) => p.teamId === myRow.id)
+          .map((p) => ({
+            overall: p.overall,
+            round: p.round,
+            playerId: p.playerId,
+            playerName: p.player.name,
+            playerListPrice: p.player.listPrice,
+            franchise: p.player.franchise,
+            roles: p.player.roles,
+          }))
+      : [];
+
+  let picksUntilMyTurn: number | null = null;
+  if (
+    draft.status === "IN_PROGRESS" &&
+    teamCount >= 2 &&
+    myRow != null &&
+    draft.currentPickIndex < total
+  ) {
+    const mySlot = orderedIds.indexOf(myRow.id);
+    if (mySlot >= 0) {
+      picksUntilMyTurn = picksUntilSlotOnClock(
+        draft.currentPickIndex,
+        mySlot,
+        teamCount,
+        total,
+      );
+    }
+  }
+
   return {
     league: {
       id: league.id,
@@ -513,6 +550,8 @@ export async function getDraftState(leagueId: string, userId: string) {
       playerId: p.playerId,
       playerName: p.player.name,
       playerListPrice: p.player.listPrice,
+      franchise: p.player.franchise,
+      roles: p.player.roles,
       wasAutopick: p.wasAutopick,
       autopickReason: p.autopickReason,
     })),
@@ -524,7 +563,9 @@ export async function getDraftState(leagueId: string, userId: string) {
         }
       : null,
     isMyTurn,
+    picksUntilMyTurn,
     myTeam,
+    myRosterPlayers,
     availablePlayers: availablePlayers.map((p) => ({
       id: p.id,
       name: p.name,
