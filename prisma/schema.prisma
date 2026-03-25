@@ -1,0 +1,328 @@
+// IPL Fantasy Draft — Postgres schema (first cut). League.settings JSON holds roster limits,
+// pick timer, autopick, scoring, trade rules, waiver schedule, etc.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DraftStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETE
+  CANCELLED
+}
+
+enum TradeProposalStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  VETOED
+  EXPIRED
+}
+
+enum AcquiredVia {
+  DRAFT
+  TRADE
+  WAIVER
+  FA
+}
+
+enum RosterTransactionType {
+  TRADE
+  ADD
+  DROP
+  ADD_DROP
+}
+
+enum WaiverClaimStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  CANCELLED
+}
+
+enum PlayerRole {
+  BATTER
+  BOWLER
+  ALL_ROUNDER
+  KEEPER
+}
+
+enum WaiverMode {
+  FCFS
+  ROLLING_WAIVERS
+  FAAB
+}
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  emailVerified    DateTime?
+  name             String?
+  image            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  leaguesCommissioned League[] @relation("Commissioner")
+  teams            Team[]
+}
+
+model League {
+  id             String     @id @default(cuid())
+  name           String
+  inviteCode     String     @unique
+  seasonYear     Int
+  commissionerId String
+  commissioner   User       @relation("Commissioner", fields: [commissionerId], references: [id])
+  settings       Json       @default("{}")
+  waiverMode     WaiverMode @default(ROLLING_WAIVERS)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  teams            Team[]
+  drafts           Draft[]
+  rosterEntries    RosterEntry[]
+  tradeProposals   TradeProposal[]
+  waiverRuns       WaiverRun[]
+  rosterTransactions RosterTransaction[]
+  matchups             Matchup[]
+  waiverClaims         WaiverClaim[]
+}
+
+model Team {
+  id            String    @id @default(cuid())
+  leagueId      String
+  league        League    @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  teamName      String
+  draftPosition Int?
+  faabRemaining Decimal?  @db.Decimal(10, 2)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  picks                Pick[]
+  rosterEntries        RosterEntry[]
+  tradeProposalsFrom   TradeProposal[] @relation("ProposerTeam")
+  tradeProposalsTo     TradeProposal[] @relation("CounterpartyTeam")
+  waiverClaims         WaiverClaim[]
+  matchupsAsA          Matchup[]       @relation("TeamA")
+  matchupsAsB          Matchup[]       @relation("TeamB")
+  lineups              Lineup[]
+
+  @@unique([leagueId, userId])
+  @@index([leagueId])
+}
+
+model Draft {
+  id               String      @id @default(cuid())
+  leagueId         String      @unique
+  league           League      @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  status           DraftStatus @default(PENDING)
+  currentPickIndex Int         @default(0)
+  pickDeadlineAt   DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  picks Pick[]
+}
+
+model Player {
+  id            String       @id @default(cuid())
+  externalId    String?      @unique
+  name          String
+  franchise     String
+  roles         PlayerRole[]
+  consensusRank Int?
+  active        Boolean      @default(true)
+  seasonYear    Int
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  picks            Pick[]
+  rosterEntries    RosterEntry[]
+  waiverClaimsAdd  WaiverClaim[] @relation("AddPlayer")
+  waiverClaimsDrop WaiverClaim[] @relation("DropPlayer")
+  fixtureStats     PlayerFixtureStat[]
+
+  @@index([seasonYear, consensusRank])
+}
+
+model Pick {
+  id             String   @id @default(cuid())
+  draftId        String
+  draft          Draft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  round          Int
+  overall        Int
+  teamId         String
+  team           Team     @relation(fields: [teamId], references: [id])
+  playerId       String
+  player         Player   @relation(fields: [playerId], references: [id])
+  pickedAt       DateTime @default(now())
+  wasAutopick    Boolean  @default(false)
+  autopickReason String?
+
+  @@unique([draftId, overall])
+  @@index([draftId])
+}
+
+model RosterEntry {
+  id          String      @id @default(cuid())
+  leagueId    String
+  league      League      @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  teamId      String
+  team        Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId    String
+  player      Player      @relation(fields: [playerId], references: [id])
+  acquiredVia AcquiredVia
+  createdAt   DateTime    @default(now())
+
+  @@unique([leagueId, playerId])
+  @@index([teamId])
+}
+
+model TradeProposal {
+  id                 String              @id @default(cuid())
+  leagueId           String
+  league             League              @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  proposerTeamId     String
+  proposerTeam       Team                @relation("ProposerTeam", fields: [proposerTeamId], references: [id])
+  counterpartyTeamId String
+  counterpartyTeam   Team                @relation("CounterpartyTeam", fields: [counterpartyTeamId], references: [id])
+  status             TradeProposalStatus @default(PENDING)
+  /// JSON: { givePlayerIds: string[], receivePlayerIds: string[] }
+  payload            Json
+  expiresAt          DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([leagueId])
+  @@index([counterpartyTeamId, status])
+}
+
+model RosterTransaction {
+  id        String                @id @default(cuid())
+  leagueId  String
+  league    League                @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  type      RosterTransactionType
+  /// JSON: teamIds, playerIds, tradeProposalId, waiverRunId, notes, etc.
+  metadata  Json
+  createdAt DateTime              @default(now())
+
+  @@index([leagueId, createdAt])
+}
+
+model Gameweek {
+  id        String    @id @default(cuid())
+  seasonYear Int
+  index     Int
+  startsAt  DateTime
+  endsAt    DateTime
+  lockAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  fixtures     Fixture[]
+  matchups     Matchup[]
+  lineups      Lineup[]
+  waiverClaims WaiverClaim[]
+  waiverRuns   WaiverRun[]
+
+  @@unique([seasonYear, index])
+}
+
+model Fixture {
+  id            String   @id @default(cuid())
+  seasonYear    Int
+  homeFranchise String
+  awayFranchise String
+  startTimeUtc  DateTime
+  externalId    String?  @unique
+  gameweekId    String
+  gameweek      Gameweek @relation(fields: [gameweekId], references: [id])
+  createdAt     DateTime @default(now())
+
+  playerStats PlayerFixtureStat[]
+
+  @@index([seasonYear, startTimeUtc])
+}
+
+model PlayerFixtureStat {
+  id        String  @id @default(cuid())
+  playerId  String
+  player    Player  @relation(fields: [playerId], references: [id])
+  fixtureId String
+  fixture   Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  points    Decimal @default(0) @db.Decimal(12, 4)
+  rawStats  Json?
+
+  @@unique([playerId, fixtureId])
+}
+
+model Matchup {
+  id           String    @id @default(cuid())
+  leagueId     String
+  league       League    @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  gameweekId   String
+  gameweek     Gameweek  @relation(fields: [gameweekId], references: [id])
+  teamAId      String
+  teamA        Team      @relation("TeamA", fields: [teamAId], references: [id])
+  teamBId      String
+  teamB        Team      @relation("TeamB", fields: [teamBId], references: [id])
+  scoreA       Decimal?  @db.Decimal(12, 4)
+  scoreB       Decimal?  @db.Decimal(12, 4)
+  determinedAt DateTime?
+
+  @@index([leagueId, gameweekId])
+}
+
+/// Starter / bench mapping per gameweek; slots JSON shape defined by league roster rules.
+model Lineup {
+  id         String   @id @default(cuid())
+  gameweekId String
+  gameweek   Gameweek @relation(fields: [gameweekId], references: [id])
+  teamId     String
+  team       Team     @relation(fields: [teamId], references: [id])
+  slots      Json     @default("{}")
+  updatedAt  DateTime @updatedAt
+
+  @@unique([gameweekId, teamId])
+}
+
+model WaiverRun {
+  id               String   @id @default(cuid())
+  leagueId         String
+  league           League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  gameweekId       String?
+  gameweek         Gameweek? @relation(fields: [gameweekId], references: [id])
+  processedAt      DateTime
+  orderingSnapshot Json
+  createdAt        DateTime @default(now())
+
+  claims WaiverClaim[]
+}
+
+model WaiverClaim {
+  id               String            @id @default(cuid())
+  waiverRunId      String?
+  waiverRun        WaiverRun?        @relation(fields: [waiverRunId], references: [id])
+  leagueId         String
+  league           League            @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  teamId           String
+  team             Team              @relation(fields: [teamId], references: [id])
+  gameweekId       String?
+  gameweek         Gameweek?         @relation(fields: [gameweekId], references: [id])
+  addPlayerId      String
+  addPlayer        Player            @relation("AddPlayer", fields: [addPlayerId], references: [id])
+  dropPlayerId     String?
+  dropPlayer       Player?           @relation("DropPlayer", fields: [dropPlayerId], references: [id])
+  bidAmount        Decimal?          @db.Decimal(10, 2)
+  prioritySnapshot Int?
+  status           WaiverClaimStatus @default(PENDING)
+  createdAt        DateTime          @default(now())
+
+  @@index([leagueId, status])
+}

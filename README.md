@@ -8,17 +8,17 @@ Mobile-first fantasy cricket for a private group of friends: join a league with 
 
 ## Product goals
 
-| Goal | Notes |
-|------|--------|
-| Private leagues | Commissioner creates league; friends **join with a short code** (or share link containing the code). |
-| Snake draft | Fixed draft order; order **reverses each round** (1→N, N→1, …). |
-| Timed picks | Configurable pick clock (e.g. 60s / 90s / 2m). |
-| Autopick | If time expires, system picks a player **deterministically** using a **sensible** rule (see below) — **not random**. |
-| Season play | **Head-to-head**: each gameweek your team faces one other team; standings from wins/losses (+ optional tiebreakers). |
-| Gameweeks | Define windows tied to IPL schedule (e.g. a set of matches or Fri–Sun blocks); **~6–8 games** per week when possible. |
-| Lineups | Users set starters (and bench) before **lock** (first ball of gameweek or first match in slate — product decision). |
-| Trades | Teams can **trade players** during the season (see rules below). |
-| Free agency | Teams can **add** unsigned players and **drop** rostered players via **waivers** and/or **free agency** (league setting). |
+| Goal            | Notes                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Private leagues | Commissioner creates league; friends **join with a short code** (or share link containing the code).                      |
+| Snake draft     | Fixed draft order; order **reverses each round** (1→N, N→1, …).                                                           |
+| Timed picks     | Configurable pick clock (e.g. 60s / 90s / 2m).                                                                            |
+| Autopick        | If time expires, system picks a player **deterministically** using a **sensible** rule (see below) — **not random**.      |
+| Season play     | **Head-to-head**: each gameweek your team faces one other team; standings from wins/losses (+ optional tiebreakers).      |
+| Gameweeks       | Define windows tied to IPL schedule (e.g. a set of matches or Fri–Sun blocks); **~6–8 games** per week when possible.     |
+| Lineups         | Users set starters (and bench) before **lock** (first ball of gameweek or first match in slate — product decision).       |
+| Trades          | Teams can **trade players** during the season (see rules below).                                                          |
+| Free agency     | Teams can **add** unsigned players and **drop** rostered players via **waivers** and/or **free agency** (league setting). |
 
 ---
 
@@ -27,7 +27,7 @@ Mobile-first fantasy cricket for a private group of friends: join a league with 
 - **Who:** any two teams in the same league (v1: 1:1 trades; multi-team trades are a later stretch).
 - **What:** exchange **N players for M players** (and optionally **future** draft picks if you add “draft pick” assets later — skip for v1 unless you want it).
 - **Flow (suggested):**
-  1. Team A proposes: *give* `[players]` *receive* `[players]` from Team B.
+  1. Team A proposes: _give_ `[players]` _receive_ `[players]` from Team B.
   2. Team B **accepts** or **declines**; optional **commissioner veto** window (league setting).
   3. Server validates **both** sides still own those players, **no duplicate** players post-trade, and **rosters stay legal** (roster size + min/max per position).
   4. Execute atomically: remove/add roster rows, write an auditable **transaction** record.
@@ -47,11 +47,11 @@ Mobile-first fantasy cricket for a private group of friends: join a league with 
 
 ### Fairness models (choose per league)
 
-| Mode | Behavior |
-|------|-----------|
-| **First-come, free agency** | After a clear **processing time** (e.g. immediately or at a daily run), first successful claim wins. Simple; can favor the fastest phone. |
-| **Waiver wire (rolling)** | Dropped players sit on **waivers** for **X hours/days**. Claims resolve in **waiver order** (e.g. inverse standings or rolling “last to get a claim moves to end”). |
-| **FAAB (budget)** | Each team has a **budget** of fake dollars per season; blind bids on waivers; **highest bid** wins (ties broken by **waiver order** or **standings** — deterministic). |
+| Mode                        | Behavior                                                                                                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **First-come, free agency** | After a clear **processing time** (e.g. immediately or at a daily run), first successful claim wins. Simple; can favor the fastest phone.                              |
+| **Waiver wire (rolling)**   | Dropped players sit on **waivers** for **X hours/days**. Claims resolve in **waiver order** (e.g. inverse standings or rolling “last to get a claim moves to end”).    |
+| **FAAB (budget)**           | Each team has a **budget** of fake dollars per season; blind bids on waivers; **highest bid** wins (ties broken by **waiver order** or **standings** — deterministic). |
 
 Recommend supporting **at least one** of: rolling waivers or FAAB for friend leagues so adds feel fair.
 
@@ -76,7 +76,7 @@ Autopick must be **repeatable** (same state → same pick) and **explainable** (
 
 1. **Build the set** of players who are **available** (undrafted + eligible).
 2. **Need-based filtering** (optional but “smart”):
-   - Compute **open starting slots**: which positions still need a starter for a **legal** lineup *assuming* you eventually fill the bench.
+   - Compute **open starting slots**: which positions still need a starter for a **legal** lineup _assuming_ you eventually fill the bench.
    - Prefer players who fill a **currently under-filled** position relative to minimum starters (e.g. if you still need a keeper and a bowler, restrict to those roles first).
 3. **Candidate set**:
    - If **one or more roles** are “critical” (below minimum required for a full roster over remaining picks), restrict to players in those roles.
@@ -91,7 +91,7 @@ This yields: **need-aware best player available (NBA-P)** without dice rolls.
 ### Draft room UX
 
 - Show **“Autopick: on”** when the timer is enabled and whose pick it is.
-- After autopick, show a one-line reason: *“Autopick: best available keeper (rank 42) — roster needed a keeper.”*
+- After autopick, show a one-line reason: _“Autopick: best available keeper (rank 42) — roster needed a keeper.”_
 
 ---
 
@@ -107,14 +107,24 @@ You can add **playoffs** (top N) later.
 
 ## Suggested technical stack
 
-| Layer | Suggestion |
-|-------|-------------|
-| Frontend | **Next.js** (or similar) + TypeScript, **mobile-first** CSS (e.g. Tailwind). |
-| PWA | `manifest.json`, service worker for shell/offline banner optional. |
-| API / DB | **Postgres** + an ORM (Prisma/Drizzle) or **Supabase** (auth + DB + optional realtime). |
+| Layer          | Suggestion                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Frontend       | **Next.js** (or similar) + TypeScript, **mobile-first** CSS (e.g. Tailwind).                                                   |
+| PWA            | `manifest.json`, service worker for shell/offline banner optional.                                                             |
+| API / DB       | **Postgres** + an ORM (Prisma/Drizzle) or **Supabase** (auth + DB + optional realtime).                                        |
 | Realtime draft | **Server-driven timer** + **WebSockets** or **Supabase Realtime** / polling fallback so everyone sees the same clock and pick. |
-| Auth | Email magic link or OAuth; keep it simple for friends-only leagues. |
-| Hosting | Vercel/Netlify (frontend), managed Postgres (Neon, Supabase, Railway). |
+| Auth           | Email magic link or OAuth; keep it simple for friends-only leagues.                                                            |
+| Hosting        | Vercel/Netlify (frontend), managed Postgres (Neon, Supabase, Railway).                                                         |
+
+### Locked-in choices (skeleton)
+
+| Layer     | Decision                                                                                                                                                                          |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend  | **Next.js 15** App Router, **React 19**, **TypeScript**                                                                                                                           |
+| Styling   | **Tailwind CSS v4** (`@import "tailwindcss"` + `@tailwindcss/postcss`)                                                                                                            |
+| ORM / DB  | **Prisma 6** + **PostgreSQL** (`DATABASE_URL`)                                                                                                                                    |
+| PWA       | Dynamic manifest from `src/app/manifest.ts` (not a static `public/manifest.json` yet)                                                                                             |
+| Structure | `src/lib/prisma.ts` (singleton client), `src/lib/league-settings.ts` (JSON settings shape), `src/lib/autopick.ts` (deterministic tiebreak helper), `src/jobs/` for future workers |
 
 ---
 
@@ -135,17 +145,29 @@ You can add **playoffs** (top N) later.
 - **Matchup** — gameweek_id, team_a_id, team_b_id, scores computed after lock.
 - **Lineup** — gameweek_id, team_id, starter flags per roster slot.
 
+### Architecture notes (implemented in Prisma vs this outline)
+
+The live schema lives in `prisma/schema.prisma`. Deliberate differences from the prose outline above:
+
+- **Gameweeks & fixtures** — `Gameweek` is **global per IPL season** (`seasonYear` + `index`), not per league. IPL **matches** are `Fixture` rows with required `gameweekId`, franchises, and `startTimeUtc`, instead of storing a raw list of match ids only on the gameweek document. League-specific play still uses `Matchup` (H2H) keyed by `leagueId` + `gameweekId`.
+- **`RosterTransaction`** — includes a required `leagueId` foreign key for efficient querying; detailed ids stay in `metadata` JSON.
+- **`League.waiverMode`** — first-class enum (`FCFS` \| `ROLLING_WAIVERS` \| `FAAB`) in addition to open-ended `settings` JSON.
+- **`Pick.autopickReason`** — optional string for explainable autopick copy in the draft room.
+- **`PlayerFixtureStat`** — links `Player` + `Fixture` with `points` and optional `rawStats` JSON for scoring jobs.
+- **`Lineup.slots`** — single JSON column for starter/bench mapping (shape enforced in app layer from league roster rules) rather than a normalized slot table in v1.
+- **Trade payload** — `TradeProposal.payload` JSON; intended shape `{ givePlayerIds: string[], receivePlayerIds: string[] }` (documented in schema).
+
 ---
 
 ## Implementation checklist
 
 ### Phase 1 — Foundation
 
-- [ ] Repo setup: lint, format, TypeScript, env example.
-- [ ] Postgres schema + migrations for entities above.
+- [x] Repo setup: lint, format, TypeScript, env example.
+- [x] Postgres **schema** (Prisma) for entities above — run `npm run db:migrate` or `db:push` to apply; committed SQL migrations can be added on first real migrate.
 - [ ] Auth (sign up / sign in / session).
-- [ ] Create league + **generate invite code** + commissioner role.
-- [ ] Join league by code + team name.
+- [ ] Create league + **generate invite code** + commissioner role (UI stub at `/league/create` only).
+- [ ] Join league by code + team name (UI stub at `/league/join` only).
 
 ### Phase 2 — Player pool & settings
 
@@ -171,7 +193,7 @@ You can add **playoffs** (top N) later.
 
 ### Phase 4b — Trades
 
-- [ ] **RosterEntry** (or equivalent) as source of truth for who holds which players.
+- [ ] **RosterEntry** (or equivalent) as source of truth for who holds which players in **live flows** (Prisma model exists; post-draft roster population and trades not wired yet).
 - [ ] Trade proposal UI (mobile): select players to give / players to request; show validation errors (illegal roster, wrong team).
 - [ ] Accept/decline flow + optional **commissioner veto** + **audit log** (`RosterTransaction`).
 - [ ] League settings: trade review window, trade deadline gameweek, rule for trades involving **active starters** (block vs allow with next-week effective date).
@@ -185,7 +207,8 @@ You can add **playoffs** (top N) later.
 
 ### Phase 5 — Polish
 
-- [ ] PWA manifest + icons.
+- [x] PWA **manifest** via Next.js App Router (`src/app/manifest.ts` → `/manifest.webmanifest`).
+- [ ] PWA **icons** (maskable) + optional **service worker** / offline shell.
 - [ ] Email or in-app notifications for “you’re on the clock” (optional).
 - [ ] Basic admin: reset pick only by commissioner (optional, dangerous — gate carefully).
 
@@ -218,4 +241,25 @@ You can add **playoffs** (top N) later.
 
 ---
 
-*Last updated: in-season **trades** and **free agency / waivers**; no app store; mobile-first web/PWA; deterministic autopick.*
+_Last updated: in-season **trades** and **free agency / waivers**; no app store; mobile-first web/PWA; deterministic autopick._
+
+---
+
+## Local development (skeleton)
+
+1. `cd` into this repo and install: `npm install`
+2. Copy `.env.example` → `.env` and set `DATABASE_URL`
+3. `npm run db:migrate` (or `db:push` for prototyping) then `npm run dev`
+4. Open [http://localhost:3000](http://localhost:3000); health check: [http://localhost:3000/api/health](http://localhost:3000/api/health)
+
+Stack: **Next.js** (App Router) + **TypeScript** + **Tailwind CSS v4** + **Prisma** + **Postgres**. PWA: `src/app/manifest.ts`. DB schema: `prisma/schema.prisma`.
+
+If `next dev` errors on `networkInterfaces` (some sandboxes / restricted hosts), bind explicitly: `npm run dev -- -H 127.0.0.1`.
+
+### Git branch
+
+Active skeleton work: **`pranav_website_skeleton`**. Push updates with:
+
+```bash
+git push -u origin pranav_website_skeleton
+```
