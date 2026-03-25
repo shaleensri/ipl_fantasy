@@ -1,31 +1,47 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { auth } from "@/auth";
+import { JoinLeagueForm } from "./join-league-form";
 
 export default async function JoinLeaguePage() {
   const session = await auth();
+
+  if (!session?.user) {
+    return (
+      <main className="mx-auto max-w-lg px-4 py-8">
+        <h1 className="text-xl font-semibold">Join league</h1>
+        <p className="mt-4 text-sm text-[var(--muted)]">
+          Sign in with the account you want to play as, then enter the invite code from
+          your commissioner.
+        </p>
+        <Link
+          href="/login?callbackUrl=/league/join"
+          className="mt-6 inline-block rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-medium text-[#04120f] no-underline"
+        >
+          Sign in
+        </Link>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-lg px-4 py-8">
       <h1 className="text-xl font-semibold">Join league</h1>
       <p className="mt-2 text-sm text-[var(--muted)]">
-        Next: enter short code + team name; create{" "}
-        <code className="rounded bg-[#151a24] px-1">Team</code> with{" "}
-        <code className="rounded bg-[#151a24] px-1">userId</code> = your account (each
-        user can have their own team per league).
+        One team per account per league. Invite links look like{" "}
+        <span className="font-mono text-xs text-[var(--foreground)]">
+          /league/join?code=XXXXXXXX
+        </span>
+        .
       </p>
-      {session?.user ? (
-        <p className="mt-4 text-sm text-[var(--foreground)]">
-          Logged in as {session.user.email} · role {session.user.role}
-        </p>
-      ) : (
-        <p className="mt-4 text-sm text-red-400">
-          You should not see this without signing in — try{" "}
-          <Link href="/login" className="text-[var(--accent)]">
-            Sign in
-          </Link>
-          .
-        </p>
-      )}
+      <p className="mt-2 text-sm text-[var(--foreground)]">
+        Signed in as {session.user.email}
+      </p>
+      <Suspense
+        fallback={<p className="mt-8 text-sm text-[var(--muted)]">Loading form…</p>}
+      >
+        <JoinLeagueForm />
+      </Suspense>
     </main>
   );
 }

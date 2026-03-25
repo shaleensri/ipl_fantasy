@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import type { Session } from "next-auth";
-import { canManageLeagueAsCommissioner, isAdminUser } from "@/lib/permissions";
+import {
+  canManageLeagueAsCommissioner,
+  canRunSensitiveCommissionerActions,
+  isAdminUser,
+  isLeagueCommissioner,
+} from "@/lib/permissions";
 
 function session(partial: Partial<Session["user"]> | null): Session | null {
   if (!partial) return null;
@@ -16,6 +21,8 @@ function session(partial: Partial<Session["user"]> | null): Session | null {
 }
 
 describe("permissions (unit)", () => {
+  const league = { commissionerId: "comm-1" };
+
   it("isAdminUser is false for null and PLAYER", () => {
     expect(isAdminUser(null)).toBe(false);
     expect(isAdminUser(session({ role: "PLAYER" }))).toBe(false);
@@ -25,16 +32,41 @@ describe("permissions (unit)", () => {
     expect(isAdminUser(session({ role: "ADMIN" }))).toBe(true);
   });
 
-  it("canManageLeagueAsCommissioner requires ADMIN and matching commissionerId", () => {
-    const league = { commissionerId: "comm-1" };
+  it("isLeagueCommissioner matches commissioner id only", () => {
+    expect(isLeagueCommissioner(null, league)).toBe(false);
+    expect(isLeagueCommissioner(session({ id: "other" }), league)).toBe(false);
+    expect(
+      isLeagueCommissioner(session({ id: "comm-1", role: "PLAYER" }), league),
+    ).toBe(true);
+  });
+
+  it("canManageLeagueAsCommissioner follows league commissioner (any role)", () => {
     expect(
       canManageLeagueAsCommissioner(session({ id: "comm-1", role: "PLAYER" }), league),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       canManageLeagueAsCommissioner(session({ id: "other", role: "ADMIN" }), league),
     ).toBe(false);
+  });
+
+  it("canRunSensitiveCommissionerActions requires ADMIN and commissioner", () => {
     expect(
-      canManageLeagueAsCommissioner(session({ id: "comm-1", role: "ADMIN" }), league),
+      canRunSensitiveCommissionerActions(
+        session({ id: "comm-1", role: "PLAYER" }),
+        league,
+      ),
+    ).toBe(false);
+    expect(
+      canRunSensitiveCommissionerActions(
+        session({ id: "other", role: "ADMIN" }),
+        league,
+      ),
+    ).toBe(false);
+    expect(
+      canRunSensitiveCommissionerActions(
+        session({ id: "comm-1", role: "ADMIN" }),
+        league,
+      ),
     ).toBe(true);
   });
 });
