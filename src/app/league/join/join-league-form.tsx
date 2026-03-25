@@ -12,6 +12,7 @@ export function JoinLeagueForm() {
   const [teamName, setTeamName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{
+    leagueId: string;
     leagueName: string;
     teamName: string;
   } | null>(null);
@@ -37,6 +38,7 @@ export function JoinLeagueForm() {
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
+        leagueId?: string;
         leagueName?: string;
         teamName?: string;
       };
@@ -44,8 +46,12 @@ export function JoinLeagueForm() {
         setError(data.error ?? "Could not join league.");
         return;
       }
-      if (data.leagueName && data.teamName) {
-        setSuccess({ leagueName: data.leagueName, teamName: data.teamName });
+      if (data.leagueId && data.leagueName && data.teamName) {
+        setSuccess({
+          leagueId: data.leagueId,
+          leagueName: data.leagueName,
+          teamName: data.teamName,
+        });
       }
       setTeamName("");
     } finally {
@@ -59,12 +65,20 @@ export function JoinLeagueForm() {
         <p className="font-medium text-[var(--accent)]">You&apos;re in</p>
         <p className="mt-2 text-[var(--foreground)]">League: {success.leagueName}</p>
         <p className="mt-1 text-[var(--foreground)]">Team: {success.teamName}</p>
-        <Link
-          href="/"
-          className="mt-4 inline-block rounded-lg border border-[#2a3140] px-3 py-2 text-sm no-underline text-[var(--foreground)]"
-        >
-          Back to home
-        </Link>
+        <div className="mt-4 flex flex-col gap-2">
+          <Link
+            href={`/draft/${success.leagueId}`}
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--accent)] px-3 py-2 text-center text-sm font-semibold text-zinc-950 no-underline hover:opacity-90"
+          >
+            Open draft room
+          </Link>
+          <Link
+            href="/"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#2a3140] px-3 py-2 text-center text-sm text-[var(--foreground)] no-underline hover:bg-[#1a1f2e]"
+          >
+            Back to home
+          </Link>
+        </div>
       </div>
     );
   }
@@ -100,9 +114,9 @@ export function JoinLeagueForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-medium text-[#04120f] disabled:opacity-50"
+        className="rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-zinc-950 disabled:opacity-50"
       >
-        {pending ? "Joining…" : "Join league"}
+        {pending ? "Joining…" : "Join with code"}
       </button>
     </form>
   );

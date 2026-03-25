@@ -112,6 +112,8 @@ model Team {
   user          User      @relation(fields: [userId], references: [id])
   teamName      String
   draftPosition Int?
+  /// Salary-cap draft: remaining budget while draft is in progress (set at draft start).
+  draftBudgetRemaining Decimal? @db.Decimal(10, 2)
   faabRemaining Decimal?  @db.Decimal(10, 2)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -149,6 +151,8 @@ model Player {
   franchise     String
   roles         PlayerRole[]
   consensusRank Int?
+  /// Mock salary for salary-cap snake draft (fantasy units, not INR).
+  listPrice     Int          @default(50)
   active        Boolean      @default(true)
   seasonYear    Int
   createdAt     DateTime     @default(now())

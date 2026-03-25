@@ -6,6 +6,8 @@ export type LeagueSettings = {
   pickTimerSeconds?: number;
   autopickEnabled?: boolean;
   rosterSize?: number;
+  /** Total fantasy salary cap for the draft (same units as `Player.listPrice`). */
+  draftSalaryCap?: number;
   /** Min starters per role — keys align with PlayerRole */
   minStartersByRole?: Partial<
     Record<"BATTER" | "BOWLER" | "ALL_ROUNDER" | "KEEPER", number>

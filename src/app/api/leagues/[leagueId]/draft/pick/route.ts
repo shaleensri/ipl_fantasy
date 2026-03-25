@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
-import { createLeagueForCommissioner, LeagueServiceError } from "@/server/leagues";
+import { DraftServiceError, makeManualPick } from "@/server/draft/service";
 
 const bodySchema = z.object({
-  name: z.string().trim().min(1).max(80),
-  myTeamName: z.string().trim().min(1).max(80),
+  playerId: z.string().min(1),
 });
 
-export async function POST(req: Request) {
+type RouteContext = { params: Promise<{ leagueId: string }> };
+
+export async function POST(req: Request, context: RouteContext) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { leagueId } = await context.params;
 
   let json: unknown;
   try {
@@ -29,25 +32,15 @@ export async function POST(req: Request) {
     );
   }
 
-  const seasonYear = new Date().getUTCFullYear();
-
   try {
-    const { league, inviteCode } = await createLeagueForCommissioner({
-      commissionerId: session.user.id,
-      name: parsed.data.name,
-      seasonYear,
-      myTeamName: parsed.data.myTeamName,
-    });
-
-    return NextResponse.json({
-      ok: true,
-      leagueId: league.id,
-      leagueName: league.name,
-      inviteCode,
-      seasonYear: league.seasonYear,
-    });
+    const state = await makeManualPick(
+      leagueId,
+      session.user.id,
+      parsed.data.playerId,
+    );
+    return NextResponse.json({ ok: true, ...state });
   } catch (e) {
-    if (e instanceof LeagueServiceError) {
+    if (e instanceof DraftServiceError) {
       return NextResponse.json(
         { error: e.message, code: e.code },
         { status: e.status },
