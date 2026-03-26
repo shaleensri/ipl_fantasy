@@ -1,11 +1,18 @@
-import { PrismaClient } from "@prisma/client";
-type PlayerRole = "BATTER" | "BOWLER" | "ALL_ROUNDER" | "KEEPER";
 import * as fs from "fs";
 import * as path from "path";
 
-const prisma = new PrismaClient();
+export type PlayerRole = "BATTER" | "BOWLER" | "ALL_ROUNDER" | "KEEPER";
 
-const SEASON_YEAR = new Date().getUTCFullYear();
+export interface CsvPlayer {
+  id: string;
+  externalId: string;
+  name: string;
+  franchise: string;
+  roles: PlayerRole[];
+  consensusRank: number;
+  listPrice: number;
+  seasonYear: number;
+}
 
 const TEAM_NAME_TO_FRANCHISE: Record<string, string> = {
   "Chennai Super Kings": "CSK",
@@ -20,12 +27,7 @@ const TEAM_NAME_TO_FRANCHISE: Record<string, string> = {
   "Sunrisers Hyderabad": "SRH",
 };
 
-/**
- * Role assignments for known players.
- * Defaults to ["BATTER"] for anyone not listed here.
- */
 const PLAYER_ROLES: Record<string, PlayerRole[]> = {
-  // CSK
   "Kartik Sharma": ["BATTER"],
   "Prashant Veer": ["BOWLER"],
   "Rahul Chahar": ["BOWLER"],
@@ -35,7 +37,6 @@ const PLAYER_ROLES: Record<string, PlayerRole[]> = {
   "Zak Foulkes": ["BOWLER"],
   "Sarfaraz Khan": ["BATTER"],
   "Aman Khan": ["BOWLER"],
-  // DC
   "Auqib Dar": ["BOWLER"],
   "Pathum Nissanka": ["BATTER"],
   "Kyle Jamieson": ["ALL_ROUNDER"],
@@ -44,13 +45,11 @@ const PLAYER_ROLES: Record<string, PlayerRole[]> = {
   "David Miller": ["BATTER"],
   "Prithvi Shaw": ["BATTER"],
   "Sahil Parakh": ["BATTER"],
-  // GT
   "Jason Holder": ["ALL_ROUNDER"],
   "Tom Banton": ["BATTER", "KEEPER"],
   "Ashok Sharma": ["BOWLER"],
   "Luke Wood": ["BOWLER"],
   "Prithviraj Yarra": ["BOWLER"],
-  // KKR
   "Cameron Green": ["ALL_ROUNDER"],
   "Matheesha Pathirana": ["BOWLER"],
   "Mustafizur Rahman": ["BOWLER"],
@@ -64,25 +63,21 @@ const PLAYER_ROLES: Record<string, PlayerRole[]> = {
   "Sarthak Ranjan": ["BATTER"],
   "Prashant Solanki": ["BOWLER"],
   "Kartik Tyagi": ["BOWLER"],
-  // LSG
   "Josh Inglis": ["KEEPER", "BATTER"],
   "Mukul Choudhary": ["ALL_ROUNDER"],
   "Akshat Raghuwanshi": ["BATTER"],
   "Anrich Nortje": ["BOWLER"],
   "Wanindu Hasaranga": ["ALL_ROUNDER"],
   "Naman Tiwari": ["BOWLER"],
-  // MI
   "Quinton De Kock": ["KEEPER", "BATTER"],
   "Mayank Rawat": ["KEEPER"],
   "Atharva Ankolekar": ["ALL_ROUNDER"],
   "Mohammad Izhar": ["BOWLER"],
   "Danish Malewar": ["BATTER"],
-  // PBKS
   "Ben Dwarshuis": ["BOWLER"],
   "Cooper Connolly": ["ALL_ROUNDER"],
   "Vishal Nishad": ["BOWLER"],
   "Pravin Dubey": ["BOWLER"],
-  // RR
   "Ravi Bishnoi": ["BOWLER"],
   "Adam Milne": ["BOWLER"],
   "Ravi Singh": ["BOWLER"],
@@ -92,7 +87,6 @@ const PLAYER_ROLES: Record<string, PlayerRole[]> = {
   "Aman Rao Perala": ["BATTER"],
   "Vignesh Puthur": ["BOWLER"],
   "Yash Raj Punja": ["BOWLER"],
-  // RCB
   "Venkatesh Iyer": ["ALL_ROUNDER"],
   "Mangesh Yadav": ["BOWLER"],
   "Jacob Duffy": ["BOWLER"],
@@ -101,7 +95,6 @@ const PLAYER_ROLES: Record<string, PlayerRole[]> = {
   "Vihaan Malhotra": ["BATTER"],
   "Vicky Ostwal": ["BOWLER"],
   "Satvik Deswal": ["KEEPER"],
-  // SRH
   "Liam Livingstone": ["ALL_ROUNDER"],
   "Jack Edwards": ["ALL_ROUNDER"],
   "Salil Arora": ["BOWLER"],
@@ -114,7 +107,6 @@ const PLAYER_ROLES: Record<string, PlayerRole[]> = {
   "Shivang Kumar": ["BATTER"],
 };
 
-/** Parse a single CSV line respecting double-quoted fields (which may contain commas). */
 function parseCsvLine(line: string): string[] {
   const cols: string[] = [];
   let current = "";
@@ -133,91 +125,58 @@ function parseCsvLine(line: string): string[] {
   return cols;
 }
 
-/** Convert Indian-format number string e.g. "14,20,00,000 " → 142000000 */
 function parseRupees(raw: string): number {
   return parseInt(raw.replace(/[,\s]/g, ""), 10) || 0;
 }
 
-/** Scale a rupee bid to a fantasy list-price in the same range as the old mock (5–190). */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 function listPriceFromBid(bidRs: number, maxBidRs: number): number {
   return Math.max(5, Math.round((bidRs / maxBidRs) * 190));
 }
 
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
+let _cache: CsvPlayer[] | null = null;
 
-interface PlayerRow {
-  name: string;
-  nationality: string;
-  franchise: string;
-  bidRs: number;
-}
+export function loadPlayersFromCsv(): CsvPlayer[] {
+  if (_cache) return _cache;
 
-function readCsv(): PlayerRow[] {
-  const csvPath = path.resolve(__dirname, "..", "IPL_Auction_2026_Sold_Player.csv");
-  const lines = fs.readFileSync(csvPath, "utf-8").split("\n").filter((l) => l.trim());
-  // CSV columns: index, Name, Nationality, BasePrices in Rs, Winning Bid in Rs, TeamName, Capped/UnCapped
-  return lines.slice(1).flatMap((line) => {
+  const csvPath = path.resolve(process.cwd(), "IPL_Auction_2026_Sold_Player.csv");
+  const lines = fs
+    .readFileSync(csvPath, "utf-8")
+    .split("\n")
+    .filter((l) => l.trim());
+
+  const rows = lines.slice(1).flatMap((line) => {
     const cols = parseCsvLine(line);
     const name = cols[1]?.trim();
-    const nationality = cols[2]?.trim();
     const teamName = cols[5]?.trim();
     const bidRs = parseRupees(cols[4] ?? "");
     const franchise = TEAM_NAME_TO_FRANCHISE[teamName];
     if (!name || !franchise) return [];
-    return [{ name, nationality, franchise, bidRs }];
+    return [{ name, franchise, bidRs }];
   });
-}
 
-async function main() {
-  const rows = readCsv();
-
-  // Rank players by winning bid descending (higher bid → lower rank number = better)
-  const sorted = [...rows].sort((a, b) => b.bidRs - a.bidRs || a.name.localeCompare(b.name));
+  const sorted = [...rows].sort(
+    (a, b) => b.bidRs - a.bidRs || a.name.localeCompare(b.name),
+  );
   const maxBid = sorted[0]?.bidRs ?? 1;
+  const seasonYear = 2026;
 
-  let upserted = 0;
-  for (let i = 0; i < sorted.length; i++) {
-    const { name, franchise, bidRs } = sorted[i];
-    const consensusRank = i + 1;
-    const externalId = `ipl-${SEASON_YEAR}-${slugify(name)}`;
-    const roles = PLAYER_ROLES[name] ?? ["BATTER"];
-    const price = listPriceFromBid(bidRs, maxBid);
+  _cache = sorted.map((row, i) => ({
+    id: `csv-${slugify(row.name)}`,
+    externalId: `ipl-${seasonYear}-${slugify(row.name)}`,
+    name: row.name,
+    franchise: row.franchise,
+    roles: PLAYER_ROLES[row.name] ?? ["BATTER"],
+    consensusRank: i + 1,
+    listPrice: listPriceFromBid(row.bidRs, maxBid),
+    seasonYear,
+  }));
 
-    await prisma.player.upsert({
-      where: { externalId },
-      create: {
-        externalId,
-        name,
-        franchise,
-        roles: JSON.stringify(roles),
-        consensusRank,
-        listPrice: price,
-        active: true,
-        seasonYear: SEASON_YEAR,
-      },
-      update: {
-        name,
-        franchise,
-        roles: JSON.stringify(roles),
-        consensusRank,
-        listPrice: price,
-        active: true,
-      },
-    });
-    upserted++;
-  }
-
-  console.log(`Seeded ${upserted} IPL ${SEASON_YEAR} players from auction CSV.`);
-  console.log(`  Top pick: ${sorted[0]?.name} (${sorted[0]?.franchise}) — rank 1`);
-  console.log(`  Franchises: ${[...new Set(rows.map((r) => r.franchise))].sort().join(", ")}`);
+  return _cache;
 }
-
-main()
-  .then(() => prisma.$disconnect())
-  .catch((e) => {
-    console.error(e);
-    prisma.$disconnect();
-    process.exit(1);
-  });

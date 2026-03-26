@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -89,7 +89,7 @@ model League {
   seasonYear     Int
   commissionerId String
   commissioner   User       @relation("Commissioner", fields: [commissionerId], references: [id])
-  settings       Json       @default("{}")
+  settings       String     @default("{}")
   waiverMode     WaiverMode @default(ROLLING_WAIVERS)
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
@@ -113,8 +113,8 @@ model Team {
   teamName      String
   draftPosition Int?
   /// Salary-cap draft: remaining budget while draft is in progress (set at draft start).
-  draftBudgetRemaining Decimal? @db.Decimal(10, 2)
-  faabRemaining Decimal?  @db.Decimal(10, 2)
+  draftBudgetRemaining Decimal?
+  faabRemaining Decimal?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -149,7 +149,7 @@ model Player {
   externalId    String?      @unique
   name          String
   franchise     String
-  roles         PlayerRole[]
+  roles         String       @default("[]")
   consensusRank Int?
   /// Mock salary for salary-cap snake draft (fantasy units, not INR).
   listPrice     Int          @default(50)
@@ -210,7 +210,7 @@ model TradeProposal {
   counterpartyTeam   Team                @relation("CounterpartyTeam", fields: [counterpartyTeamId], references: [id])
   status             TradeProposalStatus @default(PENDING)
   /// JSON: { givePlayerIds: string[], receivePlayerIds: string[] }
-  payload            Json
+  payload            String
   expiresAt          DateTime?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -225,7 +225,7 @@ model RosterTransaction {
   league    League                @relation(fields: [leagueId], references: [id], onDelete: Cascade)
   type      RosterTransactionType
   /// JSON: teamIds, playerIds, tradeProposalId, waiverRunId, notes, etc.
-  metadata  Json
+  metadata  String
   createdAt DateTime              @default(now())
 
   @@index([leagueId, createdAt])
@@ -271,8 +271,8 @@ model PlayerFixtureStat {
   player    Player  @relation(fields: [playerId], references: [id])
   fixtureId String
   fixture   Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
-  points    Decimal @default(0) @db.Decimal(12, 4)
-  rawStats  Json?
+  points    Decimal @default(0)
+  rawStats  String?
 
   @@unique([playerId, fixtureId])
 }
@@ -287,8 +287,8 @@ model Matchup {
   teamA        Team      @relation("TeamA", fields: [teamAId], references: [id])
   teamBId      String
   teamB        Team      @relation("TeamB", fields: [teamBId], references: [id])
-  scoreA       Decimal?  @db.Decimal(12, 4)
-  scoreB       Decimal?  @db.Decimal(12, 4)
+  scoreA       Decimal?
+  scoreB       Decimal?
   determinedAt DateTime?
 
   @@index([leagueId, gameweekId])
@@ -301,7 +301,7 @@ model Lineup {
   gameweek   Gameweek @relation(fields: [gameweekId], references: [id])
   teamId     String
   team       Team     @relation(fields: [teamId], references: [id])
-  slots      Json     @default("{}")
+  slots      String   @default("{}")
   updatedAt  DateTime @updatedAt
 
   @@unique([gameweekId, teamId])
@@ -314,7 +314,7 @@ model WaiverRun {
   gameweekId       String?
   gameweek         Gameweek? @relation(fields: [gameweekId], references: [id])
   processedAt      DateTime
-  orderingSnapshot Json
+  orderingSnapshot String
   createdAt        DateTime @default(now())
 
   claims WaiverClaim[]
@@ -334,7 +334,7 @@ model WaiverClaim {
   addPlayer        Player            @relation("AddPlayer", fields: [addPlayerId], references: [id])
   dropPlayerId     String?
   dropPlayer       Player?           @relation("DropPlayer", fields: [dropPlayerId], references: [id])
-  bidAmount        Decimal?          @db.Decimal(10, 2)
+  bidAmount        Decimal?
   prioritySnapshot Int?
   status           WaiverClaimStatus @default(PENDING)
   createdAt        DateTime          @default(now())

@@ -13,6 +13,10 @@ import {
   teamIndexForSnakePick,
 } from "@/server/draft/snake";
 
+function parseRoles(raw: string): string[] {
+  return JSON.parse(raw);
+}
+
 export class DraftServiceError extends Error {
   constructor(
     message: string,
@@ -114,7 +118,7 @@ export async function startDraft(leagueId: string, commissionerUserId: string) {
     throw new DraftServiceError("Need at least two teams to draft", 400, "NOT_ENOUGH_TEAMS");
   }
 
-  const rules = resolveDraftRules(league.settings);
+  const rules = resolveDraftRules(JSON.parse(league.settings as string));
   const total = computeTotalPicks(teams.length, rules.rosterSize);
   await alignLeagueToAvailablePlayerPool(league, total);
 
@@ -154,7 +158,7 @@ export async function processDueAutopicks(leagueId: string): Promise<void> {
     const draft = await prisma.draft.findUnique({ where: { leagueId } });
     if (!draft || draft.status !== "IN_PROGRESS") return;
 
-    const rules = resolveDraftRules(league.settings);
+    const rules = resolveDraftRules(JSON.parse(league.settings as string));
     const teams = league.teams.filter((t) => t.draftPosition != null);
     const teamCount = teams.length;
     if (teamCount < 2) return;
@@ -202,13 +206,13 @@ export async function processDueAutopicks(leagueId: string): Promise<void> {
         {
           id: a.id,
           name: a.name,
-          roles: a.roles,
+          roles: parseRoles(a.roles),
           consensusRank: a.consensusRank,
         },
         {
           id: b.id,
           name: b.name,
-          roles: b.roles,
+          roles: parseRoles(b.roles),
           consensusRank: b.consensusRank,
         },
       ),
@@ -338,7 +342,7 @@ export async function makeManualPick(
     throw new DraftServiceError("Draft is not in progress", 400, "INVALID_STATE");
   }
 
-  const rules = resolveDraftRules(league.settings);
+  const rules = resolveDraftRules(JSON.parse(league.settings as string));
   const teams = league.teams.filter((t) => t.draftPosition != null);
   const teamCount = teams.length;
   const total = computeTotalPicks(teamCount, rules.rosterSize);
@@ -430,7 +434,7 @@ export async function getDraftState(leagueId: string, userId: string) {
   });
   if (!draft) throw new DraftServiceError("Draft not found", 404);
 
-  const rules = resolveDraftRules(league.settings);
+  const rules = resolveDraftRules(JSON.parse(league.settings as string));
   type LeagueTeamRow = (typeof league.teams)[number];
   const teams = league.teams.filter((t) => t.draftPosition != null) as Array<
     LeagueTeamRow & { draftPosition: number }
@@ -491,7 +495,7 @@ export async function getDraftState(leagueId: string, userId: string) {
             playerName: p.player.name,
             playerListPrice: p.player.listPrice,
             franchise: p.player.franchise,
-            roles: p.player.roles,
+            roles: parseRoles(p.player.roles),
           }))
       : [];
 
@@ -551,7 +555,7 @@ export async function getDraftState(leagueId: string, userId: string) {
       playerName: p.player.name,
       playerListPrice: p.player.listPrice,
       franchise: p.player.franchise,
-      roles: p.player.roles,
+      roles: parseRoles(p.player.roles),
       wasAutopick: p.wasAutopick,
       autopickReason: p.autopickReason,
     })),
@@ -570,7 +574,7 @@ export async function getDraftState(leagueId: string, userId: string) {
       id: p.id,
       name: p.name,
       franchise: p.franchise,
-      roles: p.roles,
+      roles: parseRoles(p.roles),
       consensusRank: p.consensusRank,
       listPrice: p.listPrice,
     })),
